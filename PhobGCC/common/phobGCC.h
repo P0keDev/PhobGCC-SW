@@ -39,7 +39,7 @@ ControlConfig _controls{
 	.lConfig = 0,
 	.rConfig = 0,
 	.triggerConfigMin = 0,
-	.triggerConfigMax = 6,
+	.triggerConfigMax = 7,
 	.triggerDefault = 0,
 	.lTriggerOffset = 49,
 	.rTriggerOffset = 49,
@@ -1681,6 +1681,9 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 		case 6: //Scales Analog Trigger Values
 			tempBtn.La = (uint8_t) readLa(pin, controls.lTrigInitial, triggerScaleL) * shutoffLa;
 			break;
+    case 7: //Trigger Trick Emulation state
+      tempBtn.La = (uint8_t) max(0, (readLa(pin, controls.lTrigInitial, 1) * shutoffLa) - (controls.lTriggerOffset - controls.triggerMin));
+      break;
 		default:
 			tempBtn.La = (uint8_t) readLa(pin, controls.lTrigInitial, 1) * shutoffLa;
 	}
@@ -1721,6 +1724,9 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 		case 6: //Scales Analog Trigger Values
 			tempBtn.Ra = (uint8_t) readRa(pin, controls.rTrigInitial, triggerScaleR) * shutoffRa;
 			break;
+    case 7: //Trigger Trick Emulation state
+      tempBtn.Ra = (uint8_t) max(0, (readRa(pin, controls.rTrigInitial, 1) * shutoffRa) - (controls.rTriggerOffset - controls.triggerMin));
+      break;
 		default:
 			tempBtn.Ra = (uint8_t) readRa(pin, controls.rTrigInitial, 1) * shutoffRa;
 	}
