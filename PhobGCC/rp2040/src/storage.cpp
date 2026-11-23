@@ -58,8 +58,31 @@ void getStoragePage() {
 		_storage.settings.xRemap = temp.settings.xRemap;
 		_storage.settings.yRemap = temp.settings.yRemap;
 		_storage.settings.zRemap = temp.settings.zRemap;
+		_storage.settings.phozlExtraMode = temp.settings.phozlExtraMode;
+		_storage.settings.phozlExtraValue = temp.settings.phozlExtraValue;
 		fresh = true;
 	}
+}
+
+//PhoZL extra (left Z) button settings
+int getPhozlExtraModeSetting() {
+	getStoragePage();
+	return _storage.settings.phozlExtraMode;
+}
+
+void setPhozlExtraModeSetting(const int mode) {
+	getStoragePage();
+	_storage.settings.phozlExtraMode = mode;
+}
+
+int getPhozlExtraValueSetting() {
+	getStoragePage();
+	return _storage.settings.phozlExtraValue;
+}
+
+void setPhozlExtraValueSetting(const int value) {
+	getStoragePage();
+	_storage.settings.phozlExtraValue = value;
 }
 
 //Write back to persistent storage

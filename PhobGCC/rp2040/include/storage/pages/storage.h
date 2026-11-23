@@ -55,6 +55,10 @@ struct Storage {
 		uint8_t xRemap;
 		uint8_t yRemap;
 		uint8_t zRemap;
+		//PhoZL extra (left Z) button; appended last (older saves read as
+		//out-of-range garbage here and are replaced with defaults on load)
+		int phozlExtraMode;
+		int phozlExtraValue;
 	} settings;
 };
 
@@ -85,6 +89,12 @@ void setRemapSetting(
 
 int  getLSetting();
 void setLSetting(const int);
+
+int  getPhozlExtraModeSetting();
+void setPhozlExtraModeSetting(const int);
+
+int  getPhozlExtraValueSetting();
+void setPhozlExtraValueSetting(const int);
 
 int  getRSetting();
 void setRSetting(const int);

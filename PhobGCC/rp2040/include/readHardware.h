@@ -15,6 +15,10 @@
 #include "structsAndEnums.h"
 #include "storage/pages/storage.h"
 
+//PhoZL: state of the L-side Z button (GPIO12), captured in readButtons and
+//OR'd onto the Z output after button remaps so it is always a Z.
+bool _phozlZLPressed = false;
+
 void setPinModes() {
 	gpio_init(_pinA);
 	gpio_pull_up(_pinA);
@@ -103,9 +107,12 @@ void setPinModes() {
 	gpio_set_dir(_pinDac2, GPIO_OUT);
 	gpio_set_dir(_pinDac3, GPIO_OUT);
 
-	//initialize spare outputs
+	//PhoZL: L-side Z button wired to GPIO12 (_pinSpare0) and GND.
+	//Configure as a pulled-up input so it reads like the other buttons.
 	gpio_init(_pinSpare0);
-	gpio_set_dir(_pinSpare0, GPIO_OUT);
+	gpio_pull_up(_pinSpare0);
+	gpio_set_dir(_pinSpare0, GPIO_IN);
+	//initialize spare outputs
 	gpio_init(_pinSpare1);
 	gpio_set_dir(_pinSpare1, GPIO_OUT);
 	gpio_init(_pinSpare2);
@@ -122,6 +129,7 @@ void readButtons(const Pins &, Buttons &hardware) {
 	hardware.L  = !gpio_get(_pinL);
 	hardware.R  = !gpio_get(_pinR);
 	hardware.Z  = !gpio_get(_pinZ);
+	_phozlZLPressed = !gpio_get(_pinSpare0);//PhoZL: L-side Z (GPIO12); forced onto Z output after remaps
 	hardware.S  = !gpio_get(_pinS);
 	hardware.Dr = !gpio_get(_pinDr);
 	hardware.Du = !gpio_get(_pinDu);

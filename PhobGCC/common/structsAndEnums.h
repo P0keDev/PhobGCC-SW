@@ -239,6 +239,10 @@ struct ControlConfig{
 	const int interlaceOffsetMax;
 #endif //PICO_RP2040
 	ExtrasConfig extras[EXTRAS_SIZE];
+	//PhoZL extra (left Z) button: mode and analog shield value
+	//(appended last so the designated initializer for _controls is unchanged)
+	int phozlExtraMode;   //0 Z, 1 analog shield, 2 digital L shield, 3 digital R shield
+	int phozlExtraValue;  //analog value sent by the analog shield mode
 };
 
 struct FilterGains {

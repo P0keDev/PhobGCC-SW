@@ -694,6 +694,75 @@ void showTriggerSettings(Buttons &btn, Buttons &hardware, ControlConfig &control
 	clearButtons(2000, btn, hardware);
 }
 
+#ifdef PICO_RP2040
+//---- PhoZL extra (left Z, GPIO12) button settings --------------------------
+//Modes:
+//  0 Z (default)
+//  1 Analog shield: sends phozlExtraValue on the analog channel of a shoulder
+//    whose trigger mode is Digital Only (R first, then L) -- that channel is
+//    otherwise unused. Does nothing if neither shoulder is Digital Only.
+//  2 Digital L shield: this button becomes the L digital input; the L
+//    shoulder's own digital click is disabled (its analog is unchanged).
+//  3 Digital R shield: same, for R.
+const int phozlExtraModeMax = 3;
+const int phozlExtraValueDefault = 49;   //same default as the trigger offsets
+
+void nextPhozlExtraMode(Buttons &btn, Buttons &hardware, ControlConfig &controls) {
+	if(controls.phozlExtraMode >= phozlExtraModeMax) {
+		controls.phozlExtraMode = 0;
+	} else {
+		controls.phozlExtraMode = controls.phozlExtraMode + 1;
+	}
+	setPhozlExtraModeSetting(controls.phozlExtraMode);
+
+	//One-indexed readout on the A-stick Y axis (the trigger modes use X)
+	btn.Ax = (uint8_t) (_floatOrigin);
+	btn.Ay = (uint8_t) (_floatOrigin + controls.phozlExtraMode + 1);
+
+	clearButtons(1000, btn, hardware);
+}
+
+void adjustPhozlExtraValue(const Increase increase, Buttons &btn, Buttons &hardware, ControlConfig &controls) {
+	if(increase == INCREASE) {
+		controls.phozlExtraValue++;
+		if(controls.phozlExtraValue > controls.triggerMax) {
+			controls.phozlExtraValue = controls.triggerMax;
+		}
+	} else {
+		controls.phozlExtraValue--;
+		if(controls.phozlExtraValue < controls.triggerMin) {
+			controls.phozlExtraValue = controls.triggerMin;
+		}
+	}
+	setPhozlExtraValueSetting(controls.phozlExtraValue);
+
+	//Readout like the trigger offsets: the value on both trigger analogs, and
+	//on the Y axes (A-stick shows 100 when the value is over 99)
+	btn.La = (uint8_t) controls.phozlExtraValue;
+	btn.Ra = (uint8_t) controls.phozlExtraValue;
+	if(controls.phozlExtraValue > 99) {
+		btn.Ay = (uint8_t) (_floatOrigin + 100);
+		btn.Cy = (uint8_t) (_floatOrigin + controls.phozlExtraValue - 100);
+	} else {
+		btn.Cy = (uint8_t) (_floatOrigin + controls.phozlExtraValue);
+	}
+
+	clearButtons(100, btn, hardware);
+}
+
+void showPhozlExtraSettings(Buttons &btn, Buttons &hardware, ControlConfig &controls) {
+	//Mode (one-indexed) on the A-stick Y axis, value on the trigger analogs
+	btn.Ax = (uint8_t) (_floatOrigin);
+	btn.Ay = (uint8_t) (_floatOrigin + controls.phozlExtraMode + 1);
+	btn.Cx = (uint8_t) (_floatOrigin);
+	btn.Cy = (uint8_t) (_floatOrigin);
+	btn.La = (uint8_t) controls.phozlExtraValue;
+	btn.Ra = (uint8_t) controls.phozlExtraValue;
+
+	clearButtons(2000, btn, hardware);
+}
+#endif //PICO_RP2040
+
 void changeTournamentToggle(Buttons &btn, Buttons &hardware, ControlConfig &controls) {
 	if(controls.tournamentToggle == controls.tournamentToggleMax) {
 		controls.tournamentToggle = 0;
@@ -1427,6 +1496,20 @@ int readEEPROM(ControlConfig &controls, FilterGains &gains, FilterGains &normGai
 		numberOfNaN++;
 		debug_print("numberOfNaN increased at interlace");
 	}
+
+	//PhoZL extra button. Saves from before this feature hold leftover bytes
+	//here, so out-of-range values quietly become the defaults (they are NOT
+	//counted as NaNs, which could trigger a factory reset).
+	controls.phozlExtraMode = getPhozlExtraModeSetting();
+	if(controls.phozlExtraMode < 0 || controls.phozlExtraMode > phozlExtraModeMax) {
+		controls.phozlExtraMode = 0;
+		setPhozlExtraModeSetting(controls.phozlExtraMode);
+	}
+	controls.phozlExtraValue = getPhozlExtraValueSetting();
+	if(controls.phozlExtraValue < controls.triggerMin || controls.phozlExtraValue > controls.triggerMax) {
+		controls.phozlExtraValue = phozlExtraValueDefault;
+		setPhozlExtraValueSetting(controls.phozlExtraValue);
+	}
 #endif //PICO_RP2040
 
 	//Migration
@@ -1545,6 +1628,13 @@ void resetDefaults(HardReset reset, ControlConfig &controls, FilterGains &gains,
 
 	controls.tournamentToggle = 0;
 	setTournamentToggleSetting(controls.tournamentToggle);
+
+#ifdef PICO_RP2040
+	controls.phozlExtraMode = 0;
+	setPhozlExtraModeSetting(controls.phozlExtraMode);
+	controls.phozlExtraValue = phozlExtraValueDefault;
+	setPhozlExtraValueSetting(controls.phozlExtraValue);
+#endif //PICO_RP2040
 
 	controls.aRemap = 1 << A_REMAP;
 	controls.bRemap = 1 << B_REMAP;
@@ -1881,6 +1971,28 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 	//Implement button remaps
 	applyRemaps(controls, hardware, tempBtn);
 
+#ifdef PICO_RP2040
+	//PhoZL extra (left Z, GPIO12) button, after the remaps. Modes 2/3 put it
+	//in place of the L/R digital input BEFORE the trigger modes below, so it
+	//behaves exactly like that shoulder's click under any trigger mode (and
+	//the shoulder's own click no longer registers). Mode 1 is applied after
+	//the trigger modes.
+	switch(controls.phozlExtraMode) {
+		case 1: //analog shield: see after the trigger modes
+			break;
+		case 2: //digital L shield
+			tempBtn.L = (uint8_t) (_phozlZLPressed ? 1 : 0);
+			break;
+		case 3: //digital R shield
+			tempBtn.R = (uint8_t) (_phozlZLPressed ? 1 : 0);
+			break;
+		default: //Z
+			if(_phozlZLPressed) {
+				tempBtn.Z = 1;
+			}
+	}
+#endif
+
 	//read the L and R sliders here instead of readSticks so we don't get race conditions for mode 6
 
 	//We multiply the analog trigger reads by this to shut them off if the trigger is acting as another button
@@ -1992,6 +2104,19 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 		default:
 			tempBtn.Ra = (uint8_t) readRa(pin, controls.rTrigInitial, 1) * shutoffRa;
 	}
+
+#ifdef PICO_RP2040
+	//PhoZL extra button, analog shield mode: the set value goes out on the
+	//analog channel of a Digital Only shoulder (R first, then L), which that
+	//trigger mode leaves at 0. With no Digital Only shoulder it does nothing.
+	if(controls.phozlExtraMode == 1 && _phozlZLPressed) {
+		if(controls.rConfig == 1) {
+			tempBtn.Ra = (uint8_t) controls.phozlExtraValue;
+		} else if(controls.lConfig == 1) {
+			tempBtn.La = (uint8_t) controls.phozlExtraValue;
+		}
+	}
+#endif
 
 	//Apply any further button remapping to tempBtn here
 
@@ -2289,6 +2414,19 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 		} else if(hardware.A && hardware.B && hardware.R) { //Toggle Analog R
 			settingChangeCount++;
 			nextTriggerState(RTRIGGER, btn, hardware, controls);
+#ifdef PICO_RP2040
+		} else if(hardware.A && hardware.B && _phozlZLPressed && !hardware.L && !hardware.R) { //PhoZL: cycle extra button mode
+			settingChangeCount++;
+			nextPhozlExtraMode(btn, hardware, controls);
+		} else if(_phozlZLPressed && hardware.B && hardware.Du && !hardware.A && !hardware.L && !hardware.R) { //PhoZL: increase analog shield value
+			settingChangeCount++;
+			adjustPhozlExtraValue(INCREASE, btn, hardware, controls);
+		} else if(_phozlZLPressed && hardware.B && hardware.Dd && !hardware.A && !hardware.L && !hardware.R) { //PhoZL: decrease analog shield value
+			settingChangeCount++;
+			adjustPhozlExtraValue(DECREASE, btn, hardware, controls);
+		} else if(_phozlZLPressed && hardware.S && !hardware.A && !hardware.B && !hardware.X && !hardware.Y && !hardware.L && !hardware.R && !hardware.Z) { //PhoZL: show extra button settings
+			showPhozlExtraSettings(btn, hardware, controls);
+#endif //PICO_RP2040
 		} else if(hardware.L && hardware.B && hardware.Du) { //Increase L-Trigger Offset
 			settingChangeCount++;
 			adjustTriggerOffset(LTRIGGER, INCREASE, btn, hardware, controls);
