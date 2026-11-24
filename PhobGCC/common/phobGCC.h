@@ -26,6 +26,7 @@ using std::max;
 #include "stick.h"
 #include "../extras/extras.h"
 
+#define SWIZ_MODE
 #define BUILD_RELEASE
 //#define BUILD_DEV
 
@@ -1968,6 +1969,40 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 	Buttons tempBtn;
 	copyButtons(hardware, tempBtn);
 
+#ifdef SWIZ_MODE
+
+	// BUTTON REMAPS:
+	// L -> L (digital)
+	// ZL -> Z
+	// R -> A
+	// Z -> X
+	// A -> R (digital)
+	// B -> B
+	// X -> analog shield (R offset)
+	// Y -> analog shield (L offset)
+	// Dup -> Y
+
+	tempBtn.Z = (uint8_t) (_phozlZLPressed ? 1 : 0);
+	tempBtn.A = hardware.R;
+	tempBtn.X = hardware.Z;
+	tempBtn.R = hardware.A;
+	tempBtn.Y = hardware.Du;
+	tempBtn.Du = (uint8_t) 0;
+
+	if (hardware.X) {
+		tempBtn.Ra = (uint8_t) min(controls.rTriggerOffset, 255);
+	} else {
+		tempBtn.Ra = (uint8_t) 0;
+	}
+
+	if (hardware.Y) {
+		tempBtn.La = (uint8_t) min(controls.lTriggerOffset, 255);
+	} else {
+		tempBtn.La = (uint8_t) 0;
+	}
+
+#else
+
 	//Implement button remaps
 	applyRemaps(controls, hardware, tempBtn);
 
@@ -2117,6 +2152,8 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 		}
 	}
 #endif
+
+#endif // SWIZ_MODE
 
 	//Apply any further button remapping to tempBtn here
 
