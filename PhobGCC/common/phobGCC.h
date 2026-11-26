@@ -1986,8 +1986,15 @@ void processButtons(Pins &pin, Buttons &btn, Buttons &hardware, ControlConfig &c
 	tempBtn.A = hardware.R;
 	tempBtn.X = hardware.Z;
 	tempBtn.R = hardware.A;
-	tempBtn.Y = hardware.Du;
-	tempBtn.Du = (uint8_t) 0;
+
+	// ProZL extra mode 0: Du -> Y, cannot input Du
+	// 			   mode 1: Du -> Du, cannot input Y
+	if (controls.phozlExtraMode == 0) {
+		tempBtn.Y = hardware.Du;
+		tempBtn.Du = (uint8_t) 0;
+	} else {
+		tempBtn.Y = (uint8_t) 0;
+	}
 
 	if (hardware.X) {
 		tempBtn.Ra = (uint8_t) min(controls.rTriggerOffset, 255);
